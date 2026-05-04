@@ -28,12 +28,13 @@ jobs:
       - name: 📥 Checkout repository
         uses: actions/checkout@v4
 
-      # ── Step 2: Set up Node.js (version 20 LTS)
+      # ── Step 2: Set up Node.js (version 24 LTS)
+      # NOTE: No "cache: npm" here — caching requires a package-lock.json file.
+      # npm install below will generate it automatically on first run.
       - name: 🟢 Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "20"
-          cache: "npm"
+          node-version: "24"
 
       # ── Step 3: Install system dependencies needed by Puppeteer/Chromium
       # These are required for running a headless browser on Ubuntu
