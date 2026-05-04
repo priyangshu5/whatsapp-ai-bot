@@ -1,0 +1,4 @@
+# This folder is used to store WhatsApp session data.
+# It is auto-populated when the bot authenticates for the first time.
+# Do NOT delete this folder.
+# You may want to add "session/" to .gitignore to avoid committing session files.
