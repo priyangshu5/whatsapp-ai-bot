@@ -1,0 +1,9 @@
+# Node modules
+node_modules/
+
+# WhatsApp session data (contains auth tokens — do not commit!)
+session/!session/.gitkeep
+
+# OS files
+.DS_Store
+Thumbs.db

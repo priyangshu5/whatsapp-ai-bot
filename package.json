@@ -1,0 +1,25 @@
+{
+  "name": "whatsapp-ai-bot",
+  "version": "1.0.0",
+  "description": "A WhatsApp AI chatbot using whatsapp-web.js and OpenRouter API, running on GitHub Actions.",
+  "main": "index.js",
+  "scripts": {
+    "start": "node index.js"
+  },
+  "keywords": [
+    "whatsapp",
+    "chatbot",
+    "ai",
+    "openrouter",
+    "github-actions"
+  ],
+  "author": "Student Project",
+  "license": "MIT",
+  "dependencies": {
+    "qrcode-terminal": "^0.12.0",
+    "whatsapp-web.js": "^1.23.0"
+  },
+  "engines": {
+    "node": ">=18.0.0"
+  }
+}
