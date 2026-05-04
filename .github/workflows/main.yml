@@ -1,0 +1,74 @@
+# ============================================================
+# .github/workflows/main.yml
+# GitHub Actions Workflow for WhatsApp AI Bot
+# ============================================================
+# This workflow:
+#   1. Is triggered manually (you click "Run workflow" on GitHub)
+#   2. Sets up a fresh Ubuntu environment
+#   3. Installs Node.js and dependencies
+#   4. Installs Chromium (required by whatsapp-web.js / Puppeteer)
+#   5. Runs the bot — QR code will appear in the logs
+#   6. You scan the QR with your phone to authenticate
+# ============================================================
+
+name: WhatsApp AI Bot
+
+on:
+  # ── Allows you to trigger this workflow manually from GitHub UI
+  workflow_dispatch:
+
+jobs:
+  run-bot:
+    name: Run WhatsApp AI Bot
+    runs-on: ubuntu-latest
+    timeout-minutes: 355  # GitHub Actions max is 360 min (~6 hours)
+
+    steps:
+      # ── Step 1: Check out your repository code
+      - name: 📥 Checkout repository
+        uses: actions/checkout@v4
+
+      # ── Step 2: Set up Node.js (version 20 LTS)
+      - name: 🟢 Set up Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: "20"
+          cache: "npm"
+
+      # ── Step 3: Install system dependencies needed by Puppeteer/Chromium
+      # These are required for running a headless browser on Ubuntu
+      - name: 🖥️ Install Chromium and system dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y \
+            chromium-browser \
+            libatk-bridge2.0-0 \
+            libgtk-3-0 \
+            libx11-xcb1 \
+            libxcomposite1 \
+            libxdamage1 \
+            libxrandr2 \
+            libgbm1 \
+            libasound2 \
+            libpangocairo-1.0-0 \
+            libxss1 \
+            libnss3 \
+            fonts-liberation \
+            xdg-utils
+
+      # ── Step 4: Install Node.js project dependencies
+      - name: 📦 Install Node.js dependencies
+        run: npm install
+
+      # ── Step 5: Set Puppeteer to use the system Chromium
+      # (Avoids downloading a separate Chromium binary)
+      - name: ⚙️ Configure Puppeteer to use system Chromium
+        run: echo "PUPPETEER_EXECUTABLE_PATH=$(which chromium-browser)" >> $GITHUB_ENV
+
+      # ── Step 6: Run the WhatsApp AI Bot
+      # 👀 Watch the logs here — the QR code will appear!
+      # Scan it with your phone within 60 seconds.
+      - name: 🤖 Start WhatsApp AI Bot
+        env:
+          PUPPETEER_EXECUTABLE_PATH: ${{ env.PUPPETEER_EXECUTABLE_PATH }}
+        run: node index.js
