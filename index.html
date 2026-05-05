@@ -1,67 +1,373 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>QR Live Viewer</title>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no" />
+  <title>QR Scanner</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link href="https://fonts.googleapis.com/css2?family=Share+Tech+Mono&family=Syne:wght@400;700&display=swap" rel="stylesheet" />
 
-<style>
-body {
-    margin:0;
-    background:#0a0a0f;
-    display:flex;
-    align-items:center;
-    justify-content:center;
-    height:100vh;
-    color:white;
-    font-family:sans-serif;
-}
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
 
-.container {
-    text-align:center;
-}
+    :root {
+      --bg:      #0a0a0a;
+      --surface: #111111;
+      --border:  #222222;
+      --accent:  #00ff88;
+      --accent2: #00ccff;
+      --text:    #e8e8e8;
+      --muted:   #555555;
+      --danger:  #ff4444;
+      --radius:  12px;
+    }
 
-img {
-    width:90vw;
-    max-width:500px;
-    border-radius:12px;
-    background:#111;
-    padding:10px;
-}
+    html, body {
+      height: 100%;
+      width: 100%;
+      overflow: hidden;
+      background: var(--bg);
+      color: var(--text);
+      font-family: 'Syne', sans-serif;
+    }
 
-.status {
-    margin-top:10px;
-    font-size:14px;
-    opacity:0.7;
-}
-</style>
+    /* Subtle grain overlay */
+    body::before {
+      content: '';
+      position: fixed;
+      inset: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+      opacity: 0.03;
+      pointer-events: none;
+      z-index: 0;
+    }
+
+    /* Layout */
+    .shell {
+      position: relative;
+      z-index: 1;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      height: 100dvh;
+      padding: 24px;
+      gap: 28px;
+    }
+
+    /* Header */
+    .header {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 6px;
+      animation: fadeDown 0.6s ease both;
+    }
+    .header .label {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.25em;
+      text-transform: uppercase;
+      color: var(--accent);
+    }
+    .header h1 {
+      font-size: clamp(18px, 4vw, 26px);
+      font-weight: 700;
+      letter-spacing: -0.02em;
+    }
+
+    /* QR Card */
+    .qr-card {
+      position: relative;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: var(--radius);
+      padding: 20px;
+      width:  min(80vw, 80vh, 420px);
+      height: min(80vw, 80vh, 420px);
+      animation: scaleIn 0.5s cubic-bezier(0.34, 1.56, 0.64, 1) 0.2s both;
+    }
+
+    /* Corner accent marks */
+    .qr-card::before,
+    .qr-card::after {
+      content: '';
+      position: absolute;
+      width: 24px;
+      height: 24px;
+      border-color: var(--accent);
+      border-style: solid;
+    }
+    .qr-card::before {
+      top: -1px; left: -1px;
+      border-width: 2px 0 0 2px;
+      border-radius: var(--radius) 0 0 0;
+    }
+    .qr-card::after {
+      bottom: -1px; right: -1px;
+      border-width: 0 2px 2px 0;
+      border-radius: 0 0 var(--radius) var(--radius);
+    }
+
+    /* QR Image */
+    #qr-img {
+      width: 100%;
+      height: 100%;
+      object-fit: contain;
+      border-radius: 6px;
+      display: none;
+      image-rendering: pixelated;
+    }
+
+    /* State overlays */
+    .state {
+      position: absolute;
+      inset: 0;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 16px;
+      border-radius: var(--radius);
+      text-align: center;
+      padding: 24px;
+    }
+
+    #state-loading { display: flex; }
+    #state-error   { display: none;  }
+
+    .spinner {
+      width: 40px;
+      height: 40px;
+      border: 2px solid var(--border);
+      border-top-color: var(--accent);
+      border-radius: 50%;
+      animation: spin 0.8s linear infinite;
+    }
+
+    .state-text {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 13px;
+      color: var(--muted);
+      letter-spacing: 0.08em;
+    }
+
+    .error-icon { font-size: 32px; }
+    .error-msg {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      color: var(--danger);
+      letter-spacing: 0.06em;
+      white-space: pre-line;
+    }
+
+    /* Footer */
+    .footer {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 12px;
+      animation: fadeUp 0.6s ease 0.4s both;
+    }
+
+    .countdown-pill {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 999px;
+      padding: 6px 16px;
+    }
+
+    .dot {
+      width: 6px;
+      height: 6px;
+      border-radius: 50%;
+      background: var(--accent);
+      animation: pulse 1.5s ease-in-out infinite;
+    }
+
+    .countdown-text {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 12px;
+      color: var(--muted);
+      letter-spacing: 0.06em;
+    }
+    #countdown-num { color: var(--accent); font-weight: bold; }
+
+    .btn-fullscreen {
+      background: none;
+      border: 1px solid var(--border);
+      border-radius: 8px;
+      color: var(--muted);
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 11px;
+      letter-spacing: 0.1em;
+      padding: 8px 20px;
+      cursor: pointer;
+      text-transform: uppercase;
+      transition: border-color 0.2s, color 0.2s;
+    }
+    .btn-fullscreen:hover { border-color: var(--accent2); color: var(--accent2); }
+
+    .status-line {
+      font-family: 'Share Tech Mono', monospace;
+      font-size: 10px;
+      letter-spacing: 0.15em;
+      color: var(--muted);
+      text-transform: uppercase;
+    }
+    #status-text { color: var(--accent); }
+
+    /* Animations */
+    @keyframes spin     { to { transform: rotate(360deg); } }
+    @keyframes pulse    { 0%,100%{opacity:1} 50%{opacity:0.2} }
+    @keyframes fadeDown { from{opacity:0;transform:translateY(-12px)} to{opacity:1;transform:none} }
+    @keyframes fadeUp   { from{opacity:0;transform:translateY(12px)}  to{opacity:1;transform:none} }
+    @keyframes scaleIn  { from{opacity:0;transform:scale(0.92)}       to{opacity:1;transform:none} }
+    @keyframes flashGreen {
+      0%   { box-shadow: 0 0 0 0   rgba(0,255,136,0.5); }
+      70%  { box-shadow: 0 0 0 18px rgba(0,255,136,0); }
+      100% { box-shadow: 0 0 0 0   rgba(0,255,136,0); }
+    }
+    .flash { animation: flashGreen 0.7s ease; }
+
+    @media (max-height: 600px) {
+      .shell { gap: 14px; padding: 12px; }
+      .header h1 { font-size: 16px; }
+    }
+  </style>
 </head>
-
 <body>
 
-<div class="container">
-    <img id="qr" src="qr.png" />
-    <div class="status" id="status">Loading QR...</div>
+<div class="shell">
+
+  <div class="header">
+    <span class="label">⬡ WhatsApp Auth</span>
+    <h1>Scan to Connect</h1>
+  </div>
+
+  <div class="qr-card" id="qr-card">
+    <div class="state" id="state-loading">
+      <div class="spinner"></div>
+      <span class="state-text">Waiting for QR...</span>
+    </div>
+    <div class="state" id="state-error">
+      <div class="error-icon">⚠</div>
+      <span class="error-msg" id="error-msg">QR not available yet.\nRetrying...</span>
+    </div>
+    <img id="qr-img" alt="QR Code" />
+  </div>
+
+  <div class="footer">
+    <div class="countdown-pill">
+      <div class="dot"></div>
+      <span class="countdown-text">Refreshing in <span id="countdown-num">8</span>s</span>
+    </div>
+    <button class="btn-fullscreen" onclick="toggleFullscreen()">⛶ Fullscreen</button>
+    <span class="status-line">STATUS: <span id="status-text">LOADING</span></span>
+  </div>
+
 </div>
 
 <script>
-const qr = document.getElementById("qr");
-const status = document.getElementById("status");
+  // ============================================================
+  // CONFIG — edit these two lines to match your setup
+  // ============================================================
 
-let interval = 5000; // 5 sec refresh
+  // If your backend serves QR as an endpoint (e.g. Flask /qr route):
+  const QR_URL = "/qr";
 
-function loadQR() {
-    const url = "qr.png?t=" + Date.now(); // cache bust
-    qr.src = url;
+  // If using a static file in the same folder, use this instead:
+  // const QR_URL = "qr.png";
 
-    status.innerText = "Updated: " + new Date().toLocaleTimeString();
-}
+  const REFRESH_INTERVAL = 8; // seconds between auto-refresh
+  // ============================================================
 
-// Auto refresh
-setInterval(loadQR, interval);
+  const img       = document.getElementById("qr-img");
+  const card      = document.getElementById("qr-card");
+  const stLoad    = document.getElementById("state-loading");
+  const stErr     = document.getElementById("state-error");
+  const errMsg    = document.getElementById("error-msg");
+  const countNum  = document.getElementById("countdown-num");
+  const statusTxt = document.getElementById("status-text");
 
-// First load
-loadQR();
+  let refreshTimer, countdownTimer;
+
+  function loadQR() {
+    // Cache-bust so browser doesn't serve a stale image
+    const src = `${QR_URL}?t=${Date.now()}`;
+
+    img.style.display = "none";
+    stLoad.style.display = "flex";
+    stErr.style.display  = "none";
+    statusTxt.textContent = "LOADING";
+
+    const tmp = new Image();
+
+    tmp.onload = () => {
+      img.src = src;
+      img.style.display    = "block";
+      stLoad.style.display = "none";
+      stErr.style.display  = "none";
+      statusTxt.textContent = "READY — SCAN NOW";
+
+      // Green flash to signal fresh QR
+      card.classList.remove("flash");
+      void card.offsetWidth;
+      card.classList.add("flash");
+    };
+
+    tmp.onerror = () => {
+      img.style.display    = "none";
+      stLoad.style.display = "none";
+      stErr.style.display  = "flex";
+      errMsg.textContent   = "QR not available yet.\nRetrying...";
+      statusTxt.textContent = "WAITING";
+    };
+
+    tmp.src = src;
+  }
+
+  function startCountdown() {
+    let n = REFRESH_INTERVAL;
+    countNum.textContent = n;
+    clearInterval(countdownTimer);
+    countdownTimer = setInterval(() => {
+      n--;
+      countNum.textContent = n;
+      if (n <= 0) clearInterval(countdownTimer);
+    }, 1000);
+  }
+
+  function startRefreshLoop() {
+    loadQR();
+    startCountdown();
+    clearInterval(refreshTimer);
+    refreshTimer = setInterval(() => {
+      loadQR();
+      startCountdown();
+    }, REFRESH_INTERVAL * 1000);
+  }
+
+  function toggleFullscreen() {
+    if (!document.fullscreenElement) {
+      document.documentElement.requestFullscreen().catch(() => {});
+    } else {
+      document.exitFullscreen().catch(() => {});
+    }
+  }
+
+  // Press F for fullscreen
+  document.addEventListener("keydown", e => {
+    if (e.key === "f" || e.key === "F") toggleFullscreen();
+  });
+
+  startRefreshLoop();
 </script>
 
 </body>
